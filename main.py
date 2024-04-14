@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from bson.objectid import ObjectId
 from fastapi import FastAPI, HTTPException, Path
+from loguru import logger
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -14,6 +15,7 @@ MONGO_ID_REGEX = r"^[a-f\d]{24}"
 class Settings(BaseSettings):
     mongo_uri: str
     root_path: str = ""
+    logging_level: str = "INFO"
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 
