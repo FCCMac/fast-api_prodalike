@@ -1,7 +1,11 @@
 from datetime import datetime, timezone
+from typing import Any, Callable, TypeVar
+import logging
+import time
 
 from bson.objectid import ObjectId
-from fastapi import FastAPI, HTTPException, Path
+from fastapi import FastAPI, HTTPException, Path, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel
@@ -10,6 +14,11 @@ import uvicorn
 
 
 MONGO_ID_REGEX = r"^[a-f\d]{24}"
+F = TypeVar("F", bound=Callable[..., Any])
+
+# disable uvicorn logging
+# uvicorn_logger = logging.getLogger("uvicorn")
+# uvicorn_logger.propagate = False
 
 
 class Settings(BaseSettings):
@@ -39,6 +48,33 @@ app = FastAPI(
     docs_url="/",
     root_path=settings.root_path,
 )
+app.add_middleware(
+    CORSMiddleware,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    allow_origins=[
+        "http://localhost:3000",
+    ],
+)
+
+
+@app.middleware("http")
+async def process_time_log_middleware(request: Request, call_next: F) -> Response:
+    """
+    Add API process time in response headers and log calls
+    """
+
+    start_time = time.time()
+    response: Response = await call_next(request)
+    process_time = str(round(time.time() - start_time, 3))
+    response.headers["X-Process-Time"] = process_time
+
+    logger.info(
+        f"Method={request.method} Path={request.url.path} StatusCode={response.status_code} ProcessTime={process_time}"
+    )
+
+    return response
 
 
 class Todo(BaseModel):
@@ -186,6 +222,6 @@ if __name__ == "__main__":
         "main:app",
         host="0.0.0.0",
         port=8000,
-        log_level="debug",
+        log_level="error",
         reload=True,
     )
