@@ -13,6 +13,7 @@ MONGO_ID_REGEX = r"^[a-f\d]{24}"
 
 class Settings(BaseSettings):
     mongo_uri: str
+    root_path: str = ""
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 
@@ -21,7 +22,21 @@ settings = Settings()
 db_client = AsyncIOMotorClient(settings.mongo_uri)
 db = db_client.todoDb
 
-app = FastAPI()
+description = """
+This example Todo service was built with [FastAPI🚀](https://fastapi.tiangolo.com)
+
+📁 [Source Code](https://github.com/FCCMac/fast-api_prodalike)
+🪲 [Report an Issue](https://github.com/FCCMac/fast-api_prodalike/issues)
+🧑‍💻 Written by [FCCMac](https://github.com/FCCMac)
+"""
+
+app = FastAPI(
+    title="FastAPI Todo Web Service",
+    description=description,
+    version="1.0.0",
+    docs_url="/",
+    root_path=settings.root_path,
+)
 
 
 class Todo(BaseModel):
