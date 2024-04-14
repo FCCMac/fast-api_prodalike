@@ -1,21 +1,18 @@
 import uvicorn
 from fastapi import FastAPI
+from motor.motor_asyncio import AsyncIOMotorClient
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+class Settings(BaseSettings):
+    mongo_uri: str
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+settings = Settings()
+
+db_client = AsyncIOMotorClient(settings.mongo_uri)
+db = db_client.todoDb
 
 app = FastAPI()
-
-@app.get("/")
-async def read_root() -> dict[str, str]:
-    """
-    Hello World
-    """
-    return {"Hello": "World"}
-
-@app.get("/items/{item_id}")
-async def read_item(item_id) -> dict[str, str]:
-    """
-    Get an Item
-    """
-    return {"item_id": item_id}
 
 if __name__ == "__main__":
     uvicorn.run(
