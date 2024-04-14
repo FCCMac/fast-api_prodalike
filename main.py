@@ -1,21 +1,168 @@
+from datetime import datetime, timezone
+
+from bson.objectid import ObjectId
+from fastapi import FastAPI, HTTPException, Path
+from motor.motor_asyncio import AsyncIOMotorClient
+from pydantic import BaseModel
+from pydantic_settings import BaseSettings, SettingsConfigDict
 import uvicorn
-from fastapi import FastAPI
+
+
+MONGO_ID_REGEX = r"^[a-f\d]{24}"
+
+
+class Settings(BaseSettings):
+    mongo_uri: str
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+
+settings = Settings()
+
+db_client = AsyncIOMotorClient(settings.mongo_uri)
+db = db_client.todoDb
 
 app = FastAPI()
 
-@app.get("/")
-async def read_root() -> dict[str, str]:
-    """
-    Hello World
-    """
-    return {"Hello": "World"}
 
-@app.get("/items/{item_id}")
-async def read_item(item_id) -> dict[str, str]:
+class Todo(BaseModel):
+    title: str
+    completed: bool = False
+
+
+class TodoId(BaseModel):
+    id: str
+
+
+class TodoRecord(TodoId, Todo):
+    created_date: datetime
+    updated_date: datetime
+
+
+class NotFoundException(BaseModel):
+    detail: str = "Not Found"
+
+
+@app.post("/todos", response_model=TodoId)
+async def create_todo(payload: Todo) -> TodoId:
     """
-    Get an Item
+    Create a new Todo
     """
-    return {"item_id": item_id}
+
+    now = datetime.now(timezone.utc)
+    insert_result = await db.todos.insert_one(
+        {
+            "title": payload.title,
+            "completed": payload.completed,
+            "created_date": now,
+            "updated_date": now,
+        }
+    )
+
+    return TodoId(id=str(insert_result.inserted_id))
+
+
+@app.get(
+    "/todos/{id}",
+    response_model=TodoRecord,
+    responses={
+        404: {"description": "Not Found", "model": NotFoundException},
+    },
+)
+async def get_todo(
+    id: str = Path(description="Todo ID", pattern=MONGO_ID_REGEX)
+) -> TodoRecord:
+    """
+    Get a Todo
+    """
+
+    doc = await db.todos.find_one({"_id": ObjectId(id)})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Not Found")
+
+    return TodoRecord(
+        id=str(doc["_id"]),
+        title=doc["title"],
+        completed=doc["completed"],
+        created_date=doc["created_date"],
+        updated_date=doc["updated_date"],
+    )
+
+
+@app.get("/todos", response_model=list[TodoRecord])
+async def get_todos() -> list[TodoRecord]:
+    """
+    Get Todos
+    """
+
+    todos: list[TodoRecord] = []
+    async for doc in db.todos.find():
+        todos.append(
+            TodoRecord(
+                id=str(doc["_id"]),
+                title=doc["title"],
+                completed=doc["completed"],
+                created_date=doc["created_date"],
+                updated_date=doc["updated_date"],
+            )
+        )
+
+    return todos
+
+
+@app.put(
+    "/todos/{id}",
+    response_model=TodoId,
+    responses={
+        404: {"description": "Not Found", "model": NotFoundException},
+    },
+)
+async def update_todo(
+    payload: Todo,
+    id: str = Path(description="Todo ID", pattern=MONGO_ID_REGEX),
+) -> TodoId:
+    """
+    Update a Todo
+    """
+
+    now = datetime.now(timezone.utc)
+    update_result = await db.todos.update_one(
+        {"_id": ObjectId(id)},
+        {
+            "$set": {
+                "title": payload.title,
+                "completed": payload.completed,
+                "updated_date": now,
+            }
+        },
+    )
+
+    if update_result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Not Found")
+
+    return TodoId(id=id)
+
+
+@app.delete(
+    "/todos/{id}",
+    response_model=bool,
+    responses={
+        404: {"description": "Not Found", "model": NotFoundException},
+    },
+)
+async def delete_todo(
+    id: str = Path(description="Todo ID", pattern=MONGO_ID_REGEX),
+) -> bool:
+    """
+    Delete a todo
+    """
+
+    delete_result = await db.todos.delete_one({"_id": ObjectId(id)})
+
+    if delete_result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Not Found")
+
+    return True
+
 
 if __name__ == "__main__":
     uvicorn.run(

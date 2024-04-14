@@ -1,0 +1,5 @@
+.venv
+poetry.lock
+.github
+__pycache__
+.env
