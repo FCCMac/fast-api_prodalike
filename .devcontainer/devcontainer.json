@@ -27,9 +27,9 @@
 		"vscode": {
 			"extensions": ["ms-python.black-formatter"],
 			"settings": {
-				"python.defaultInterpreterPath": "/usr/local/bin/python",
+				"python.defaultInterpreterPath": "./.venv/bin/python3",
 				"python.formatting.provider":"black",
-				"python.formatting.blackPath":"/usr/local/bin/black",
+				"python.formatting.blackPath":"./.venv/bin/black",
 				"python.linting.enabled": true,
 				"python.linting.pylintEnabled": true,
 				"python.linting.mypyEnabled":true,
