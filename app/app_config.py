@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     github_oauth_client_secret: str
     root_path: str = ""
     logging_level: str = "INFO"
+    testing: bool = False
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 

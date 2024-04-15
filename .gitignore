@@ -2,4 +2,7 @@
 poetry.lock
 .github
 __pycache__
+.pytest_cache
 .env
+.coverage
+htmlcov
