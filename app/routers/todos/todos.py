@@ -38,6 +38,7 @@ async def create_todo(
         {
             "title": payload.title,
             "completed": payload.completed,
+            "user": user,
             "created_date": now,
             "updated_date": now,
         }
@@ -63,7 +64,7 @@ async def get_todo(
     Get a Todo
     """
 
-    doc = await db.todos.find_one({"_id": ObjectId(id)})
+    doc = await db.todos.find_one({"_id": ObjectId(id), "user": user})
     if not doc:
         raise HTTPException(status_code=404, detail="Not Found")
 
@@ -71,6 +72,7 @@ async def get_todo(
         id=str(doc["_id"]),
         title=doc["title"],
         completed=doc["completed"],
+        user=doc["user"],
         created_date=doc["created_date"],
         updated_date=doc["updated_date"],
     )
@@ -92,12 +94,13 @@ async def get_todos(
     """
 
     todos: list[TodoRecord] = []
-    async for doc in db.todos.find():
+    async for doc in db.todos.find({"user": user}):
         todos.append(
             TodoRecord(
                 id=str(doc["_id"]),
                 title=doc["title"],
                 completed=doc["completed"],
+                user=doc["user"],
                 created_date=doc["created_date"],
                 updated_date=doc["updated_date"],
             )
@@ -126,7 +129,7 @@ async def update_todo(
 
     now = datetime.now(timezone.utc)
     update_result = await db.todos.update_one(
-        {"_id": ObjectId(id)},
+        {"_id": ObjectId(id), "user": user},
         {
             "$set": {
                 "title": payload.title,
@@ -159,7 +162,7 @@ async def delete_todo(
     Delete a todo
     """
 
-    delete_result = await db.todos.delete_one({"_id": ObjectId(id)})
+    delete_result = await db.todos.delete_one({"_id": ObjectId(id), "user": user})
 
     if delete_result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Not Found")
