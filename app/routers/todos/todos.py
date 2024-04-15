@@ -1,19 +1,34 @@
 from datetime import datetime, timezone
+from typing import Annotated
 
 from bson import ObjectId
-from fastapi import APIRouter, HTTPException, Path
+from fastapi import APIRouter, Depends, HTTPException, Path
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.static_values import MONGO_ID_REGEX
 from app.utilities.db import db
 
 from .models import NotFoundException, Todo, TodoId, TodoRecord
+from app.routers.auth.auth import validate_access_token
+from app.routers.auth.models import UnauthorizedException
 
 
 router = APIRouter()
+security = HTTPBearer()
 
 
-@router.post("", response_model=TodoId)
-async def create_todo(payload: Todo) -> TodoId:
+@router.post(
+    "",
+    response_model=TodoId,
+    responses={
+        401: {"description": "Unauthorized", "model": UnauthorizedException},
+    },
+)
+async def create_todo(
+    access_token: Annotated[HTTPAuthorizationCredentials, Depends(security)],
+    user: Annotated[str, Depends(validate_access_token)],
+    payload: Todo,
+) -> TodoId:
     """
     Create a new Todo
     """
@@ -35,11 +50,14 @@ async def create_todo(payload: Todo) -> TodoId:
     "/{id}",
     response_model=TodoRecord,
     responses={
+        401: {"description": "Unauthorized", "model": UnauthorizedException},
         404: {"description": "Not Found", "model": NotFoundException},
     },
 )
 async def get_todo(
-    id: str = Path(description="Todo ID", pattern=MONGO_ID_REGEX)
+    access_token: Annotated[HTTPAuthorizationCredentials, Depends(security)],
+    user: Annotated[str, Depends(validate_access_token)],
+    id: str = Path(description="Todo ID", pattern=MONGO_ID_REGEX),
 ) -> TodoRecord:
     """
     Get a Todo
@@ -58,8 +76,17 @@ async def get_todo(
     )
 
 
-@router.get("", response_model=list[TodoRecord])
-async def get_todos() -> list[TodoRecord]:
+@router.get(
+    "",
+    response_model=list[TodoRecord],
+    responses={
+        401: {"description": "Unauthorized", "model": UnauthorizedException},
+    },
+)
+async def get_todos(
+    access_token: Annotated[HTTPAuthorizationCredentials, Depends(security)],
+    user: Annotated[str, Depends(validate_access_token)],
+) -> list[TodoRecord]:
     """
     Get Todos
     """
@@ -83,10 +110,13 @@ async def get_todos() -> list[TodoRecord]:
     "/{id}",
     response_model=TodoId,
     responses={
+        401: {"description": "Unauthorized", "model": UnauthorizedException},
         404: {"description": "Not Found", "model": NotFoundException},
     },
 )
 async def update_todo(
+    access_token: Annotated[HTTPAuthorizationCredentials, Depends(security)],
+    user: Annotated[str, Depends(validate_access_token)],
     payload: Todo,
     id: str = Path(description="Todo ID", pattern=MONGO_ID_REGEX),
 ) -> TodoId:
@@ -116,10 +146,13 @@ async def update_todo(
     "/{id}",
     response_model=bool,
     responses={
+        401: {"description": "Unauthorized", "model": UnauthorizedException},
         404: {"description": "Not Found", "model": NotFoundException},
     },
 )
 async def delete_todo(
+    access_token: Annotated[HTTPAuthorizationCredentials, Depends(security)],
+    user: Annotated[str, Depends(validate_access_token)],
     id: str = Path(description="Todo ID", pattern=MONGO_ID_REGEX),
 ) -> bool:
     """

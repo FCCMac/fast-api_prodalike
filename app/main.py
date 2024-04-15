@@ -8,12 +8,15 @@ import uvicorn
 
 from app.app_config import settings
 from app.routers.todos import todos
+from app.routers.auth import auth
 
 
 F = TypeVar("F", bound=Callable[..., Any])
 
-description = """
+description = f"""
 This example Todo service was built with [FastAPI🚀](https://fastapi.tiangolo.com)
+
+Authorize to get an access token from GitHub at <https://github.com/login/oauth/authorize?client_id={settings.github_oauth_client_id}&redirect_uri=http://localhost:8000/v1/auth/callback>
 
 📁 [Source Code](https://github.com/FCCMac/fast-api_prodalike)
 🪲 [Report an Issue](https://github.com/FCCMac/fast-api_prodalike/issues)
@@ -55,10 +58,17 @@ async def process_time_log_middleware(request: Request, call_next: F) -> Respons
 
     return response
 
+
 app.include_router(
     todos.router,
     prefix="/v1/todos",
     tags=["todos"],
+)
+
+app.include_router(
+    auth.router,
+    prefix="/v1/auth",
+    tags=["auth"],
 )
 
 if __name__ == "__main__":
