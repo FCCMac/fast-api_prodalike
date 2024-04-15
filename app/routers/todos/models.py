@@ -13,6 +13,7 @@ class TodoId(BaseModel):
 
 
 class TodoRecord(TodoId, Todo):
+    user: str
     created_date: datetime
     updated_date: datetime
 
