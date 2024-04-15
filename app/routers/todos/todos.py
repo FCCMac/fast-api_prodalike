@@ -1,101 +1,18 @@
 from datetime import datetime, timezone
-from typing import Any, Callable, TypeVar
-import logging
-import time
 
-from bson.objectid import ObjectId
-from fastapi import FastAPI, HTTPException, Path, Request, Response
-from fastapi.middleware.cors import CORSMiddleware
-from loguru import logger
-from motor.motor_asyncio import AsyncIOMotorClient
-from pydantic import BaseModel
-from pydantic_settings import BaseSettings, SettingsConfigDict
-import uvicorn
+from bson import ObjectId
+from fastapi import APIRouter, HTTPException, Path
+
+from app.static_values import MONGO_ID_REGEX
+from app.utilities.db import db
+
+from .models import NotFoundException, Todo, TodoId, TodoRecord
 
 
-MONGO_ID_REGEX = r"^[a-f\d]{24}"
-F = TypeVar("F", bound=Callable[..., Any])
-
-# disable uvicorn logging
-# uvicorn_logger = logging.getLogger("uvicorn")
-# uvicorn_logger.propagate = False
+router = APIRouter()
 
 
-class Settings(BaseSettings):
-    mongo_uri: str
-    root_path: str = ""
-    logging_level: str = "INFO"
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
-
-
-settings = Settings()
-
-db_client = AsyncIOMotorClient(settings.mongo_uri)
-db = db_client.todoDb
-
-description = """
-This example Todo service was built with [FastAPI🚀](https://fastapi.tiangolo.com)
-
-📁 [Source Code](https://github.com/FCCMac/fast-api_prodalike)
-🪲 [Report an Issue](https://github.com/FCCMac/fast-api_prodalike/issues)
-🧑‍💻 Written by [FCCMac](https://github.com/FCCMac)
-"""
-
-app = FastAPI(
-    title="FastAPI Todo Web Service",
-    description=description,
-    version="1.0.0",
-    docs_url="/",
-    root_path=settings.root_path,
-)
-app.add_middleware(
-    CORSMiddleware,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    allow_origins=[
-        "http://localhost:3000",
-    ],
-)
-
-
-@app.middleware("http")
-async def process_time_log_middleware(request: Request, call_next: F) -> Response:
-    """
-    Add API process time in response headers and log calls
-    """
-
-    start_time = time.time()
-    response: Response = await call_next(request)
-    process_time = str(round(time.time() - start_time, 3))
-    response.headers["X-Process-Time"] = process_time
-
-    logger.info(
-        f"Method={request.method} Path={request.url.path} StatusCode={response.status_code} ProcessTime={process_time}"
-    )
-
-    return response
-
-
-class Todo(BaseModel):
-    title: str
-    completed: bool = False
-
-
-class TodoId(BaseModel):
-    id: str
-
-
-class TodoRecord(TodoId, Todo):
-    created_date: datetime
-    updated_date: datetime
-
-
-class NotFoundException(BaseModel):
-    detail: str = "Not Found"
-
-
-@app.post("/todos", response_model=TodoId)
+@router.post("", response_model=TodoId)
 async def create_todo(payload: Todo) -> TodoId:
     """
     Create a new Todo
@@ -114,8 +31,8 @@ async def create_todo(payload: Todo) -> TodoId:
     return TodoId(id=str(insert_result.inserted_id))
 
 
-@app.get(
-    "/todos/{id}",
+@router.get(
+    "/{id}",
     response_model=TodoRecord,
     responses={
         404: {"description": "Not Found", "model": NotFoundException},
@@ -141,7 +58,7 @@ async def get_todo(
     )
 
 
-@app.get("/todos", response_model=list[TodoRecord])
+@router.get("", response_model=list[TodoRecord])
 async def get_todos() -> list[TodoRecord]:
     """
     Get Todos
@@ -162,8 +79,8 @@ async def get_todos() -> list[TodoRecord]:
     return todos
 
 
-@app.put(
-    "/todos/{id}",
+@router.put(
+    "/{id}",
     response_model=TodoId,
     responses={
         404: {"description": "Not Found", "model": NotFoundException},
@@ -195,8 +112,8 @@ async def update_todo(
     return TodoId(id=id)
 
 
-@app.delete(
-    "/todos/{id}",
+@router.delete(
+    "/{id}",
     response_model=bool,
     responses={
         404: {"description": "Not Found", "model": NotFoundException},
@@ -215,13 +132,3 @@ async def delete_todo(
         raise HTTPException(status_code=404, detail="Not Found")
 
     return True
-
-
-if __name__ == "__main__":
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=8000,
-        log_level="error",
-        reload=True,
-    )
