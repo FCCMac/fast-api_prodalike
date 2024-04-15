@@ -1,6 +1,19 @@
-from motor.motor_asyncio import AsyncIOMotorClient
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from app.app_config import settings
 
 
-db_client = AsyncIOMotorClient(settings.mongo_uri)
-db = db_client.todoDb
+def get_db() -> AsyncIOMotorDatabase:
+    """
+    Get MongoDB
+    """
+
+    if settings.testing:
+        from mongomock_motor import AsyncMongoMockClient
+
+        mock_db: AsyncIOMotorDatabase = AsyncMongoMockClient().todoDb
+        return mock_db
+    else:
+        return AsyncIOMotorClient(settings.mongo_uri).todoDb
+
+
+db = get_db()
