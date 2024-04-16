@@ -21,6 +21,23 @@ services:
       - .env
     depends_on:
       - db
+  server:
+    image: nginx:1.25-alpine
+    container_name: nginx
+    restart: always
+    ports:
+      - 443:443
+    volumes:
+      - type: bind
+        read_only: true
+        source: ./nginx.conf
+        target: /etc/nginx/nginx.conf
+      - type: bind
+        read_only: true
+        source: ./certs
+        target: /etc/ssl/certs
+    depends_on:
+      - api
 
 volumes:
   fast_api_db_data:
